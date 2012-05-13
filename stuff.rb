@@ -81,13 +81,13 @@ class Compiler
       end
     else
       # TODO: this is just a guess value, what is the correct one??
-      stack_adjustment = ((args.size-5) * PTR_SIZE)
+      stack_adjustment = ((args.size-6) * PTR_SIZE)
       puts "\tsubq\t$#{stack_adjustment}, %rsp"
       puts "\tmovl\t$.LC0, %eax"
 
       counter = 6
       args[1..-6].each_with_index do |a,i|
-        index = stack_adjustment - (i+2)*PTR_SIZE
+        index = stack_adjustment - (i+1)*PTR_SIZE
         puts "\tmovq\t$.LC#{counter},#{index>0 ? index : ""}(%rsp)"
         counter += 1
       end
