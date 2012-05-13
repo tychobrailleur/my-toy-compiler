@@ -1,5 +1,7 @@
 #!/bin/env ruby
 
+require 'logger'
+
 # This is my first attempt at a simple compiler following the Ruby
 # compiler series:
 # http://www.hokstad.com/writing-a-compiler-in-ruby-bottom-up-step-2.html
@@ -24,6 +26,8 @@ class Compiler
   def initialize
     @string_constants = {}
     @seq = 0
+
+    @logger = Logger.new(STDERR)
   end
 
   def get_arg(a)
@@ -52,10 +56,10 @@ class Compiler
   end
 
   def output_constants
-    order_constants
+#    order_constants
     puts "\t.section\t.rodata"
     index = 0
-    @ordered_constants.each do |c|
+    @string_constants.each_key do |c|
       puts ".LC#{index}:"
       puts "\t.string \"#{c}\""
       index += 1
@@ -65,38 +69,46 @@ class Compiler
   PTR_SIZE = 8
   REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi"]
   def compile_exp(exp)
-    call = exp[0].to_s
+    if exp[0] == :do
+      exp[1..-1].each{ |e| compile_exp(e) }
+      return
+    end
 
-    args = exp[1..-1].collect {|a| get_arg(a)}
+    call = exp[0].to_s
+    args = exp[1..-1].collect { |a| get_arg(a) }
 
     if args.size == 0
       puts "\tmovl\t$.LC0, %edi"
     elsif args.size <= 6
-      puts "\tmovl\t$.LC0, %eax"
-      counter = 1
+      counter = 0
+      puts "\tmovl\t$.LC#{args[0]}, %eax"
+      counter += 1
       REGISTERS[REGISTERS.size-args.size+1..-1].each do 
         |r|
-        puts "\tmovl\t$.LC#{counter}, %#{r}"
+        puts "\tmovl\t$.LC#{args[args.size-counter]}, %#{r}"
         counter += 1
       end
     else
+      counter = 0
       # TODO: this is just a guess value, what is the correct one??
       stack_adjustment = ((args.size-6) * PTR_SIZE)
       puts "\tsubq\t$#{stack_adjustment}, %rsp"
-      puts "\tmovl\t$.LC0, %eax"
+      puts "\tmovl\t$.LC#{args[0]}, %eax"
 
       counter = 6
       args[1..-6].each_with_index do |a,i|
         index = stack_adjustment - (i+1)*PTR_SIZE
-        puts "\tmovq\t$.LC#{counter},#{index>0 ? index : ""}(%rsp)"
+        puts "\tmovq\t$.LC#{args[args.size-counter+1]},#{index>0 ? index : ""}(%rsp)"
         counter += 1
       end
-      
-      # Restart counter to 1.
-      counter = 1
+
       REGISTERS.each do 
         |r|
-        puts "\tmovl\t$.LC#{counter}, %#{r}"
+        if args.size-counter == -1
+          counter = 2
+        end
+
+        puts "\tmovl\t$.LC#{args[(args.size-counter+1)]}, %#{r}"
         counter += 1
       end
 
@@ -106,12 +118,7 @@ class Compiler
     puts "\tmovq\t%rax, %rdi"
     puts "\tmovl\t$0, %eax"
     puts "\tcall\t#{call}"
-    
-    if args.size > 6
-      puts "\tleave" # What does that mean?
-    else
-      puts "\tpopq\t%rbp"
-    end
+
   end
 
   def compile(exp)
@@ -133,6 +140,13 @@ main:
 PROLOG
 
     compile_exp(exp)
+    
+    if @seq > 6
+      puts "\tleave" # What does that mean?
+    else
+      puts "\tpopq\t%rbp"
+    end
+
     puts <<EPILOG
 	.cfi_def_cfa 7, 8
 	ret
