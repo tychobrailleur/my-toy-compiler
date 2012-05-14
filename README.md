@@ -16,7 +16,3 @@ The command used to compile is:
 
     ruby stuff.rb > hello.s ; gcc -o hello hello.s
 
-Currently, there is a problem with the label assigned to the strings
-and how they are retrieved when storing into registers, as they don’t 
-depend on the string itself.  The idea is that the registers ordering
-should probably drive the arguments labelling. (=

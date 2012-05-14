@@ -40,23 +40,7 @@ class Compiler
     seq
   end
 
-  def order_constants
-    clone = @string_constants.clone
-    @ordered_constants = []
-    @ordered_constants << clone.shift.first
-
-    if clone.size < 6
-      clone.keys.reverse.each do |i|
-        @ordered_constants << i
-      end
-    else
-      tmp = clone.keys[5..-1] + clone.keys[0..4]
-      @ordered_constants += tmp.reverse
-    end
-  end
-
   def output_constants
-#    order_constants
     puts "\t.section\t.rodata"
     index = 0
     @string_constants.each_key do |c|
@@ -95,20 +79,16 @@ class Compiler
       puts "\tsubq\t$#{stack_adjustment}, %rsp"
       puts "\tmovl\t$.LC#{args[0]}, %eax"
 
-      counter = 6
+      counter = 1
       args[1..-6].each_with_index do |a,i|
         index = stack_adjustment - (i+1)*PTR_SIZE
-        puts "\tmovq\t$.LC#{args[args.size-counter+1]},#{index>0 ? index : ""}(%rsp)"
+        puts "\tmovq\t$.LC#{args[args.size-counter]},#{index>0 ? index : ""}(%rsp)"
         counter += 1
       end
 
       REGISTERS.each do 
         |r|
-        if args.size-counter == -1
-          counter = 2
-        end
-
-        puts "\tmovl\t$.LC#{args[(args.size-counter+1)]}, %#{r}"
+        puts "\tmovl\t$.LC#{args[(args.size-counter)]}, %#{r}"
         counter += 1
       end
 
@@ -159,7 +139,8 @@ EPILOG
 end
 
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
-prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
+prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
+#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
 #   [:printf, "Hello"],
 #   [:printf, " "],
