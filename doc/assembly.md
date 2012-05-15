@@ -13,6 +13,8 @@ Instruction names finish with `q`, `l`, `w` or `b`, depending on the
 size of the operands: `q` for quadriword, `l` for long, `w` for word
 and `b` for byte.
 
+## Registers
+
 To use 64 bits, registers must be named with `r`, to use only the
 lowest 32 bits, they must be named with `e`: `%rax` uses the whole
 register, `%eax` uses only the lowest 32.
@@ -26,6 +28,6 @@ register, `%eax` uses only the lowest 32.
 
 Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Background
 
-** Other Links
+## Other Links
 
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
