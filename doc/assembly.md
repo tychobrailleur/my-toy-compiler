@@ -36,6 +36,24 @@ register, `%eax` uses only the lowest 32.
     movl $45, 12(%ebx)
 
 
+## Labels
+
+* `.L` are for local labels — avoid conflicts.
+* `.LFB` function begin
+* `.LFE` function end
+* `.LPE` prologue end
+* `.LEB` epilogue begin
+
+## Pseudo-Ops
+
+## CFI Directives 
+
+Call Frame Information used to build a backtrace.
+
+
+
+See also http://www.logix.cz/michal/devel/gas-cfi/
+
 
 Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Background
 
@@ -43,4 +61,9 @@ Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Backg
 
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
 * http://scr.csc.noctrl.edu/courses/csc220/asm/gasmanual.pdf
-* 
+* http://gcc.gnu.org/viewcvs/trunk/gcc/dwarf2out.c?view=markup
+
+## Other Abbreviations
+
+* CFA: Canonical Frame Address, a fixed address on the stack which identifies a call frame.
+* CFI: Call Frame Instruction

@@ -1,7 +1,14 @@
 #include <stdio.h>
 
+
+char*
+foo(char* in)
+{
+    return in;
+}
+
 int
 main() 
 {
-    printf("%s, %s %s %s %s!\n", "Hello", "World", "Again", "Oy", "Senta");
+    printf("Hello, %s", foo("World"));
 }

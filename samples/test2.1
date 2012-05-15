@@ -1,0 +1,78 @@
+	.file	"test2.c"
+	.section	.rodata
+.LC0:
+	.string	"%s %s %s %s %s %s %s"
+.LC1:
+	.string	"five"
+.LC2:
+	.string	"four"
+.LC3:
+	.string	"three"
+.LC4:
+	.string	"two"
+.LC5:
+	.string	"one"
+.LC6:
+	.string	"seven"
+.LC7:
+	.string	"six"
+.LC8:
+	.string	"five_"
+.LC9:
+	.string	"four_"
+.LC10:
+	.string	"three_"
+.LC11:
+	.string	"two_"
+.LC12:
+	.string	"one_"
+.LC13:
+	.string	"seven_"
+.LC14:
+	.string	"six_"
+.LC15:
+	.string	"World"
+	.text
+	.globl	main
+	.type	main, @function
+main:
+.LFB0:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	subq	$16, %rsp
+	movl	$.LC0, %eax
+	movq	$.LC6, 8(%rsp)
+	movq	$.LC7, (%rsp)
+	movl	$.LC1, %r9d
+	movl	$.LC2, %r8d
+	movl	$.LC3, %ecx
+	movl	$.LC4, %edx
+	movl	$.LC5, %esi
+	movq	%rax, %rdi
+	movl	$0, %eax
+	call	printf
+	movl	$.LC0, %eax
+	movq	$.LC13, 8(%rsp)
+	movq	$.LC14, (%rsp)
+	movl	$.LC8, %r9d
+	movl	$.LC9, %r8d
+	movl	$.LC10, %ecx
+	movl	$.LC11, %edx
+	movl	$.LC12, %esi
+	movq	%rax, %rdi
+	movl	$0, %eax
+	call	printf
+	movl	$.LC15, %edi
+	call	puts
+	leave
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE0:
+	.size	main, .-main
+	.ident	"GCC: (Ubuntu/Linaro 4.6.1-9ubuntu3) 4.6.1"
+	.section	.note.GNU-stack,"",@progbits
