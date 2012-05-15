@@ -1,6 +1,6 @@
 As I am using `gcc -S` to figure out the code that needs to be
 generated, this page describes GNU AS as I understand it — usual
-warnings here: this is my own understanding of it works, it could be
+warnings here: this is my own understanding of how it works, it could be
 incorrect...
 
 
@@ -25,3 +25,7 @@ register, `%eax` uses only the lowest 32.
 
 
 Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Background
+
+** Other Links
+
+* http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
