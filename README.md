@@ -16,3 +16,6 @@ The command used to compile is:
 
     ruby stuff.rb > hello.s ; gcc -o hello hello.s
 
+Some useful links:
+
+* http://www.hep.wisc.edu/~pinghc/x86AssmTutorial.htm x86 GNU AS tutorial, but very useful to get started with x64.

@@ -139,13 +139,13 @@ EPILOG
 end
 
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
-prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
+#prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
-# prog = [ :do,
-#   [:printf, "Hello"],
-#   [:printf, " "],
-#   [:printf, "World\\n"]
-# ]
+prog = [ :do,
+  [:printf, "Hello"],
+  [:printf, " "],
+  [:printf, "World\\n"]
+]
 
 
 Compiler.new.compile(prog)
