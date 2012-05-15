@@ -25,9 +25,22 @@ register, `%eax` uses only the lowest 32.
 * `rsi`, `rdi` are the index registers.
 * `rsp` is the stack pointer
 
+## Addressing
+
+* Immediate addressing: set constant (prefixed with `$`) directly into a register:
+    movl $4, %eax
+    addl $-45, %esi
+* Register indirect: When using the register between parenthesis, it holds a memory _address_:
+    movl $45, (%ebx) # store 45 at the memory location whose address is stored in ebx
+* Register indexed: When using an offset with an index register:
+    movl $45, 12(%ebx)
+
+
 
 Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Background
 
 ## Other Links
 
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
+* http://scr.csc.noctrl.edu/courses/csc220/asm/gasmanual.pdf
+* 
