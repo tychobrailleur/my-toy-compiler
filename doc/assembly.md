@@ -46,6 +46,8 @@ register, `%eax` uses only the lowest 32.
 
 ## Pseudo-Ops
 
+* `.globl`, or `.global`: makes the symbol visible for linking.
+
 ## CFI Directives 
 
 Call Frame Information used to build a backtrace.
@@ -62,6 +64,7 @@ Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Backg
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
 * http://scr.csc.noctrl.edu/courses/csc220/asm/gasmanual.pdf
 * http://gcc.gnu.org/viewcvs/trunk/gcc/dwarf2out.c?view=markup
+* http://www.logix.cz/michal/devel/gas-cfi/
 
 ## Other Abbreviations
 
