@@ -22,8 +22,12 @@ register, `%eax` uses only the lowest 32.
 * `rax`, `rbx`, `rcx`, `rdx` are the general purpose registers.
   Remember, if using the lower 32 bits, they become `eax`, `ebx`,
   `ecx`, `edx`.
-* `rsi`, `rdi` are the index registers.
+* `rsi`, `rdi` are the index registers (`si`, source index; `di`, destination index).
 * `rsp` is the stack pointer
+* `rbp` is the stackframe base pointer.
+* Also have `r8`, `r9`, `r10`, `r11`, `r12`, `r13`, `r14`, `r15` 64 bits general purpose register.  To access lower 32 bits, use `r8d`, etc. `r15d`.  To access lowest 16 bits, use `r8w`, etc. `r15w`. To access last 8 bits, use `r8b`, etc. `r15b`.
+
+According to [AMD’s documentation](http://support.amd.com/us/Processor_TechDocs/24592_APM_v1.pdf), “a stack is a potion of a stack segment in memory that is used to link procedures. Software convenions typically define stacks using a _stack frame_, which consists of two registers—a _stackframe base pointer_ (rBP) and a _stack pointer_ (rSP)”.
 
 ## Addressing
 
@@ -35,6 +39,38 @@ register, `%eax` uses only the lowest 32.
 * Register indexed: When using an offset with an index register:
     movl $45, 12(%ebx)
 
+### Example of function call
+
+First, save the base pointer:
+
+    pushq %rbp # Save stackframe pointer
+    movq %rsp, %rbp # Copy stack pointer to base pointer
+
+Last, restore base pointer:
+
+    popq %rbp
+    ret
+
+
+## Instructions
+
+* `mov`: Copies data. Example:
+
+    movq %rbx, %rax # Copies value of %rbx into %rax.
+
+* `lea`: Load effective address.
+* `add`: Integer addition.
+
+* `call`, `ret`: Subroutine call, and return.
+
+
+## C Function call
+
+* Push function’s arguments onto the stack, last arg first.
+
+### Return value
+
+* Integers, pointers stored in `%rax` register.
 
 ## Labels
 
@@ -59,6 +95,8 @@ See also http://www.logix.cz/michal/devel/gas-cfi/
 
 Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Background
 
+* `.cfi_def_cfa reg,imm`: Set a rule for computing CFA to: take content of register reg and add imm to it.
+
 ## Other Links
 
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
@@ -70,3 +108,4 @@ Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Backg
 
 * CFA: Canonical Frame Address, a fixed address on the stack which identifies a call frame.
 * CFI: Call Frame Instruction
+
