@@ -35,17 +35,23 @@ class Compiler
 
   # returns the sequence number for a given string.
   def get_arg(a)
+    # If argument is an array, we recursively compile it.
+    if a.is_a?(Array)
+      compile_exp(a)
+      return [:subexpr]
+    end
+
     # for now we assume strings only.
     # check if string is present in constants already.
     seq = @string_constants[a]
     # if it is, return existing sequence.
-    return seq if seq
+    return [:strconst, seq] if seq
     # if not, increment sequence, and set sequence in constant pool.
     seq = @seq
     @seq += 1
     @string_constants[a] = seq
     # return sequence.
-    seq
+    [:strconst, seq]
   end
 
   def output_constants
@@ -71,35 +77,46 @@ class Compiler
 
     funcall = exp[0].to_s
 
+
     # if the function call has arguments.
     if exp.size > 1
-      args = exp[1..-1].collect { |a| get_arg(a) }
 
-      counter = 0
+      # The current implementation (slightly different to the articles’)
+      # requires to know in advance the number of args of the function 
+      # to be able properly choose registers — hence this double iteration
+      # of exp[1..-1].
+      # Args must be reversed to be passed to functions.
+      args = exp[1..-1].reverse.collect { |a| get_arg(a) }
+
       if args.size > REGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
         stack_adjustment = [((args.size-REGISTERS.size) * PTR_SIZE), 16].max
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
-        args[1..-(REGISTERS.size)].each_with_index do |a,i|
-          if args.size > REGISTERS.size + 1
-            index = stack_adjustment - (i+1)*PTR_SIZE
-          else
-            index = 0
-          end
-          @output_stream.puts "\tmovq\t$.LC#{args[args.size-counter-1]},#{index>0 ? index : ""}(%rsp)"
-          counter += 1
-        end
       end
       
-      remaining = args.size - counter
-      REGISTERS[REGISTERS.size-remaining..-1].each do 
-        |r|
-        @output_stream.puts "\tmovl\t$.LC#{args[args.size-counter-1]}, %#{r}"
-        counter += 1
+      exp[1..-1].each_with_index do |a, i|
+        atype, aparam = get_arg(a)
+        if atype == :strconst
+          param = "$.LC#{aparam}"
+        else
+          param = "%eax"
+        end
+
+        # Using 64 bits instructions for the stack
+        mov_instruction = ((args.size-i) > REGISTERS.size) ? "movq" : "movl"
+        @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
-
     @output_stream.puts "\tcall\t#{funcall}"
+  end
+  
+  def get_register(index)
+    if index > REGISTERS.size 
+      i = (index - REGISTERS.size - 1) * PTR_SIZE
+      "#{i>0 ? i : ""}(%rsp)"
+    else
+      "%#{REGISTERS[REGISTERS.size-index]}"
+    end
   end
 
   def compile(exp)
@@ -122,7 +139,7 @@ PROLOG
 
     compile_exp(exp)
     
-    if @seq > 6
+    if @seq > REGISTERS.size
       @output_stream.puts "\tleave" # What does that mean?
     else
       @output_stream.puts "\tpopq\t%rbp"
@@ -145,12 +162,12 @@ end
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
-prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
+#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
 #   [:printf, "Hello"],
 #   [:printf, " "],
 #   [:printf, "World\\n"]
 # ]
-
+prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
 
 Compiler.new.compile(prog)

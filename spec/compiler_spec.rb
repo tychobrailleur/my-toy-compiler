@@ -65,7 +65,7 @@ EXPECTED
 
     expected_output = <<EXPECTED
 	subq	$16, %rsp
-	movq	$.LC6,(%rsp)
+	movq	$.LC6, (%rsp)
 	movl	$.LC5, %r9d
 	movl	$.LC4, %r8d
 	movl	$.LC3, %ecx
@@ -85,10 +85,10 @@ EXPECTED
 
     expected_output = <<EXPECTED
 	subq	$32, %rsp
-	movq	$.LC9,24(%rsp)
-	movq	$.LC8,16(%rsp)
-	movq	$.LC7,8(%rsp)
-	movq	$.LC6,(%rsp)
+	movq	$.LC9, 24(%rsp)
+	movq	$.LC8, 16(%rsp)
+	movq	$.LC7, 8(%rsp)
+	movq	$.LC6, (%rsp)
 	movl	$.LC5, %r9d
 	movl	$.LC4, %r8d
 	movl	$.LC3, %ecx
@@ -98,6 +98,47 @@ EXPECTED
 	call	printf
 EXPECTED
     output.string.should eq(expected_output)
+  end
+
+  it "compiles functions chained with :do" do
+    output = StringIO.new
+    compiler.output_stream = output
+
+    prog = [ :do,
+             [:printf, "Hello"],
+             [:printf, " "],
+             [:printf, "World\\n"]
+           ]
+    
+    compiler.compile_exp(prog)
+    expected_output = <<EXPECTED
+	movl	$.LC0, %edi
+	call	printf
+	movl	$.LC1, %edi
+	call	printf
+	movl	$.LC2, %edi
+	call	printf
+EXPECTED
+    output.string.should eq(expected_output)
+  end
+
+  # This intentionally fails to pick it up next time.
+  it "compiles nested function calls" do
+    output = StringIO.new
+    compiler.output_stream = output
+
+    prog = [:printf,"'hello world' takes %s bytes\\n",[:echo, "hello world"]]
+
+    compiler.compile_exp(prog)
+    expected_output = <<EXPECTED
+	movl	$.LC0, %edi
+	call	echo
+	movq	%rax, %rsi
+	movq    $.LC1, %rdi
+	call	printf
+EXPECTED
+    output.string.should eq(expected_output)
+
   end
 
 end
