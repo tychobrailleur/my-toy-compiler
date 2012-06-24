@@ -22,8 +22,10 @@ require 'logger'
 #
 
 class Compiler
+  attr_writer :output_stream
 
   def initialize
+    @output_stream = STDOUT
     @string_constants = {}
     @seq = 0
 
@@ -47,11 +49,11 @@ class Compiler
   end
 
   def output_constants
-    puts "\t.section\t.rodata"
+    @output_stream.puts "\t.section\t.rodata"
     index = 0
     @string_constants.each_key do |c|
-      puts ".LC#{index}:"
-      puts "\t.string \"#{c}\""
+      @output_stream.puts ".LC#{index}:"
+      @output_stream.puts "\t.string \"#{c}\""
       index += 1
     end
   end
@@ -74,12 +76,17 @@ class Compiler
       args = exp[1..-1].collect { |a| get_arg(a) }
 
       counter = 0
-      if args.size > 6
-        stack_adjustment = ((args.size-6) * PTR_SIZE)
-        puts "\tsubq\t$#{stack_adjustment}, %rsp"
-        args[1..-6].each_with_index do |a,i|
-          index = stack_adjustment - (i+1)*PTR_SIZE
-          puts "\tmovq\t$.LC#{args[args.size-counter-1]},#{index>0 ? index : ""}(%rsp)"
+      if args.size > REGISTERS.size
+        # This is just a guess... It looks like minimum is 16, though?
+        stack_adjustment = [((args.size-REGISTERS.size) * PTR_SIZE), 16].max
+        @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
+        args[1..-(REGISTERS.size)].each_with_index do |a,i|
+          if args.size > REGISTERS.size + 1
+            index = stack_adjustment - (i+1)*PTR_SIZE
+          else
+            index = 0
+          end
+          @output_stream.puts "\tmovq\t$.LC#{args[args.size-counter-1]},#{index>0 ? index : ""}(%rsp)"
           counter += 1
         end
       end
@@ -87,21 +94,19 @@ class Compiler
       remaining = args.size - counter
       REGISTERS[REGISTERS.size-remaining..-1].each do 
         |r|
-        puts "\tmovl\t$.LC#{args[args.size-counter-1]}, %#{r}"
+        @output_stream.puts "\tmovl\t$.LC#{args[args.size-counter-1]}, %#{r}"
         counter += 1
       end
-
     end
 
-    puts "\tcall\t#{funcall}"
-
+    @output_stream.puts "\tcall\t#{funcall}"
   end
 
   def compile(exp)
-    puts "	.file	\"bootstrap.rb\""
+    @output_stream.puts "	.file	\"bootstrap.rb\""
 
     # Taken from gcc -S output
-    puts <<PROLOG
+    @output_stream.puts <<PROLOG
 	.text
 	.globl	main
 	.type	main, @function
@@ -118,12 +123,12 @@ PROLOG
     compile_exp(exp)
     
     if @seq > 6
-      puts "\tleave" # What does that mean?
+      @output_stream.puts "\tleave" # What does that mean?
     else
-      puts "\tpopq\t%rbp"
+      @output_stream.puts "\tpopq\t%rbp"
     end
 
-    puts <<EPILOG
+    @output_stream.puts <<EPILOG
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
@@ -136,10 +141,11 @@ end
 
 
 #prog = [:getchar]
-#prog = [:puts, "Hello\\n"]
+#prog = [:printf, "Hello\\n"]
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
-#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
+#prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
+prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
 #   [:printf, "Hello"],
 #   [:printf, " "],
