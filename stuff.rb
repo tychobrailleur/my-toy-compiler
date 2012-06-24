@@ -30,13 +30,19 @@ class Compiler
     @logger = Logger.new(STDERR)
   end
 
+
+  # returns the sequence number for a given string.
   def get_arg(a)
     # for now we assume strings only.
+    # check if string is present in constants already.
     seq = @string_constants[a]
+    # if it is, return existing sequence.
     return seq if seq
+    # if not, increment sequence, and set sequence in constant pool.
     seq = @seq
     @seq += 1
     @string_constants[a] = seq
+    # return sequence.
     seq
   end
 
@@ -51,53 +57,43 @@ class Compiler
   end
 
   PTR_SIZE = 8
-  REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi"]
+  REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
   def compile_exp(exp)
+    # if first element is :do, recursively compile following 
+    # entries in the expression.
     if exp[0] == :do
       exp[1..-1].each{ |e| compile_exp(e) }
       return
     end
 
-    call = exp[0].to_s
-    args = exp[1..-1].collect { |a| get_arg(a) }
 
-    if args.size == 0
-      puts "\tmovl\t$.LC0, %edi"
-    elsif args.size <= 6
+    funcall = exp[0].to_s
+
+    # if the function call has arguments.
+    if exp.size > 1
+      args = exp[1..-1].collect { |a| get_arg(a) }
+
       counter = 0
-      puts "\tmovl\t$.LC#{args[0]}, %eax"
-      counter += 1
-      REGISTERS[REGISTERS.size-args.size+1..-1].each do 
-        |r|
-        puts "\tmovl\t$.LC#{args[args.size-counter]}, %#{r}"
-        counter += 1
+      if args.size > 6
+        stack_adjustment = ((args.size-6) * PTR_SIZE)
+        puts "\tsubq\t$#{stack_adjustment}, %rsp"
+        args[1..-6].each_with_index do |a,i|
+          index = stack_adjustment - (i+1)*PTR_SIZE
+          puts "\tmovq\t$.LC#{args[args.size-counter-1]},#{index>0 ? index : ""}(%rsp)"
+          counter += 1
+        end
       end
-    else
-      counter = 0
-      # TODO: this is just a guess value, what is the correct one??
-      stack_adjustment = ((args.size-6) * PTR_SIZE)
-      puts "\tsubq\t$#{stack_adjustment}, %rsp"
-      puts "\tmovl\t$.LC#{args[0]}, %eax"
-
-      counter = 1
-      args[1..-6].each_with_index do |a,i|
-        index = stack_adjustment - (i+1)*PTR_SIZE
-        puts "\tmovq\t$.LC#{args[args.size-counter]},#{index>0 ? index : ""}(%rsp)"
-        counter += 1
-      end
-
-      REGISTERS.each do 
+      
+      remaining = args.size - counter
+      REGISTERS[REGISTERS.size-remaining..-1].each do 
         |r|
-        puts "\tmovl\t$.LC#{args[(args.size-counter)]}, %#{r}"
+        puts "\tmovl\t$.LC#{args[args.size-counter-1]}, %#{r}"
         counter += 1
       end
 
     end
-    
-    # Actual call
-    puts "\tmovq\t%rax, %rdi"
-    puts "\tmovl\t$0, %eax"
-    puts "\tcall\t#{call}"
+
+    puts "\tcall\t#{funcall}"
 
   end
 
@@ -138,14 +134,17 @@ EPILOG
   end
 end
 
+
+#prog = [:getchar]
+#prog = [:puts, "Hello\\n"]
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
-prog = [ :do,
-  [:printf, "Hello"],
-  [:printf, " "],
-  [:printf, "World\\n"]
-]
+# prog = [ :do,
+#   [:printf, "Hello"],
+#   [:printf, " "],
+#   [:printf, "World\\n"]
+# ]
 
 
 Compiler.new.compile(prog)
