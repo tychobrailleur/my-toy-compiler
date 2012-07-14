@@ -21,13 +21,23 @@ require 'logger'
 #
 #
 
+# Basic definition of a runtime library...
+DO_BEFORE = [:do,
+  [:defun, :hello_world, [], [:puts, "Hello World"]]
+]
+
+DO_AFTER = []
+
 class Compiler
   attr_writer :output_stream
 
   def initialize
     @output_stream = STDOUT
+
+    @global_functions = {}
     @string_constants = {}
     @seq = 0
+    @function_sequence = 0
 
     @logger = Logger.new(STDERR)
   end
@@ -54,6 +64,7 @@ class Compiler
     [:strconst, seq]
   end
 
+  # emits the assembly code for the constant definition.
   def output_constants
     @output_stream.puts "\t.section\t.rodata"
     index = 0
@@ -64,9 +75,48 @@ class Compiler
     end
   end
 
+  #
+  # Emits assembly code for functions.
+  def output_functions
+    @global_functions.each do |name,data|
+      @function_sequence += 1
+      @output_stream.puts <<PROLOG
+	.globl	#{name}
+	.type	#{name}, @function
+#{name}:
+.LFB#{@function_sequence}:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+PROLOG
+      compile_exp(data[1])
+
+      @output_stream.puts <<EPILOGUE
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE#{@function_sequence}:
+	.size	#{name}, .-#{name}
+
+EPILOGUE
+
+    end
+  end
+
+  # defines a function.
+  def defun(name, args, body)
+    @global_functions[name] = [args,body]
+  end
+
   PTR_SIZE = 8
   REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
   def compile_exp(exp)
+    return if !exp || exp.size == 0
+
     # if first element is :do, recursively compile following 
     # entries in the expression.
     if exp[0] == :do
@@ -74,7 +124,8 @@ class Compiler
       return
     end
 
-
+    # function definition.
+    return defun(*exp[1..-1]) if (exp[0] == :defun)
     funcall = exp[0].to_s
 
 
@@ -119,7 +170,7 @@ class Compiler
     end
   end
 
-  def compile(exp)
+  def compile_main(exp)
     @output_stream.puts "	.file	\"bootstrap.rb\""
 
     # Taken from gcc -S output
@@ -128,7 +179,7 @@ class Compiler
 	.globl	main
 	.type	main, @function
 main:
-.LFB0:
+.LFB#{@function_sequence}:
 	.cfi_startproc
 	pushq	%rbp
 	.cfi_def_cfa_offset 16
@@ -149,11 +200,18 @@ PROLOG
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
+.LFE#{@function_sequence}:
 EPILOG
 
+    output_functions
     output_constants
 
   end
+
+  def compile(exp) 
+    compile_main([:do, DO_BEFORE, exp, DO_AFTER]) 
+  end 
+
 end
 
 
@@ -168,6 +226,7 @@ end
 #   [:printf, " "],
 #   [:printf, "World\\n"]
 # ]
-prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
+#prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
+prog = [:hello_world]
 
 Compiler.new.compile(prog)
