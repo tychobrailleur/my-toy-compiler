@@ -22,10 +22,11 @@ require 'logger'
 #
 
 # Basic definition of a runtime library...
-DO_BEFORE = [:do,
-  [:defun, :hello_world, [], [:puts, "Hello World"]]
-]
+# DO_BEFORE = [:do,
+#   [:defun, :hello_world, [], [:puts, "Hello World"]]
+# ]
 
+DO_BEFORE = []
 DO_AFTER = []
 
 class Compiler
@@ -50,6 +51,9 @@ class Compiler
       compile_exp(a)
       return [:subexpr]
     end
+
+    # handle integers
+    return [:int, a] if (a.is_a?(Fixnum))
 
     # for now we assume strings only.
     # check if string is present in constants already.
@@ -137,7 +141,8 @@ EPILOGUE
       # to be able properly choose registers — hence this double iteration
       # of exp[1..-1].
       # Args must be reversed to be passed to functions.
-      args = exp[1..-1].reverse.collect { |a| get_arg(a) }
+      # args = exp[1..-1].reverse.collect { |a| get_arg(a) }
+      args = exp[1..-1].collect { |a| get_arg(a) }
 
       if args.size > REGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
@@ -145,10 +150,11 @@ EPILOGUE
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
       
-      exp[1..-1].each_with_index do |a, i|
+      exp[1..-1].reverse.each_with_index do |a, i|
         atype, aparam = get_arg(a)
         if atype == :strconst
           param = "$.LC#{aparam}"
+        elsif atype == :int then param = "$#{aparam}" 
         else
           param = "%eax"
         end
@@ -217,16 +223,22 @@ end
 
 #prog = [:getchar]
 #prog = [:printf, "Hello\\n"]
+#prog = [:printf, "Hello %s\\n", "World"]
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
 #prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
-#   [:printf, "Hello"],
+#   [:printf, "Hello %s", "World"],
 #   [:printf, " "],
 #   [:printf, "World\\n"]
 # ]
 #prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
-prog = [:hello_world]
+#prog = [:hello_world]
+
+prog = [:do,
+  [:printf,"'hello world' takes %d bytes\\n", 11],
+  [:printf,"The above should show _%d_ bytes\\n",11]
+]
 
 Compiler.new.compile(prog)
