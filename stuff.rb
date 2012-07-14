@@ -30,6 +30,10 @@ DO_BEFORE = []
 DO_AFTER = []
 
 class Compiler
+
+  PTR_SIZE = 8
+  REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
+
   attr_writer :output_stream
 
   def initialize
@@ -52,10 +56,10 @@ class Compiler
       return [:subexpr]
     end
 
-    # handle integers
     return [:int, a] if (a.is_a?(Fixnum))
+    return [:atom, a] if (a.is_a?(Symbol))
 
-    # for now we assume strings only.
+    # handling strings.
     # check if string is present in constants already.
     seq = @string_constants[a]
     # if it is, return existing sequence.
@@ -110,12 +114,12 @@ EPILOGUE
   end
 
   # defines a function.
-  def defun(name, args, body)
+  def compile_defun(name, args, body)
     @global_functions[name] = [args,body]
   end
 
   # emits code for if ... else.
-  def ifelse(cond, if_arm, else_arm)
+  def compile_ifelse(cond, if_arm, else_arm)
     compile_exp(cond)
     @output_stream.puts "\ttestl   %eax, %eax"
     @seq += 2
@@ -129,8 +133,22 @@ EPILOGUE
     @output_stream.puts ".L#{end_if_arm_seq}:"
   end
 
-  PTR_SIZE = 8
-  REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
+  def compile_lambda(args, body)
+    name = "lambda__#{@seq}"
+    @seq += 1
+    compile_defun(name, args, body)
+    @output_stream.puts "\tmovl\t$#{name}, %eax"
+    return [:subexpr]
+  end
+
+  def compile_eval_arg(arg)
+    atype, aparam = get_arg(arg)
+    return "$.LC#{aparam}" if atype == :strconst
+    return "$#{aparam}" if atype == :int
+    return aparam.to_s if atype == :atom
+    return"%eax"
+  end
+
   def compile_exp(exp)
     return if !exp || exp.size == 0
 
@@ -142,9 +160,9 @@ EPILOGUE
     end
 
     # function definition.
-    return defun(*exp[1..-1]) if (exp[0] == :defun)
+    return compile_defun(*exp[1..-1]) if (exp[0] == :defun)
     # if ... else
-    return ifelse(*exp[1..-1]) if (exp[0] == :if) 
+    return compile_ifelse(*exp[1..-1]) if (exp[0] == :if) 
     funcall = exp[0].to_s
 
 
@@ -166,13 +184,7 @@ EPILOGUE
       end
 
       exp[1..-1].reverse.each_with_index do |a, i|
-        atype, aparam = get_arg(a)
-        if atype == :strconst
-          param = "$.LC#{aparam}"
-        elsif atype == :int then param = "$#{aparam}"
-        else
-          param = "%eax"
-        end
+        param = compile_eval_arg(a)
 
         # Using 64 bits instructions for the stack
         mov_instruction = ((args.size-i) > REGISTERS.size) ? "movq" : "movl"
