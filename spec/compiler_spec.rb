@@ -122,6 +122,38 @@ EXPECTED
     output.string.should eq(expected_output)
   end
 
+  it "compile a function definition" do
+    output = StringIO.new
+    compiler.output_stream = output
+    
+    prog = [:defun, :hello_world, [], [:puts, "Hello World"]]
+    compiler.compile_exp(prog)
+    compiler.output_functions
+    expected_output = <<EXPECTED
+	.globl	hello_world
+	.type	hello_world, @function
+hello_world:
+.LFB1:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	movq	%rsp, %rbp
+	.cfi_def_cfa_register 6
+	movl	$.LC0, %edi
+	call	puts
+	popq	%rbp
+	.cfi_def_cfa 7, 8
+	ret
+	.cfi_endproc
+.LFE1:
+	.size	hello_world, .-hello_world
+
+EXPECTED
+    output.string.should eq(expected_output)
+
+  end
+
   # This intentionally fails to pick it up next time.
   it "compiles nested function calls" do
     output = StringIO.new
