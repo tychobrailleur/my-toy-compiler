@@ -13,7 +13,7 @@ require 'logger'
 # suboptimal, or plain incorrect.  In particular, the convoluted way
 # in which the label sequence is computed is due to the fact that I
 # wanted to keep the registers used for the function call args in the
-# order returned by gcc.  I actually have no idea what the registers 
+# order returned by gcc.  I actually have no idea what the registers
 # may be, or if they could ordered differently.
 #
 # The command used to compile is:
@@ -71,11 +71,9 @@ class Compiler
   # emits the assembly code for the constant definition.
   def output_constants
     @output_stream.puts "\t.section\t.rodata"
-    index = 0
-    @string_constants.each_key do |c|
-      @output_stream.puts ".LC#{index}:"
-      @output_stream.puts "\t.string \"#{c}\""
-      index += 1
+    @string_constants.each do |k,v|
+      @output_stream.puts ".LC#{v}:"
+      @output_stream.puts "\t.string \"#{k}\""
     end
   end
 
@@ -116,12 +114,27 @@ EPILOGUE
     @global_functions[name] = [args,body]
   end
 
+  # emits code for if ... else.
+  def ifelse(cond, if_arm, else_arm)
+    compile_exp(cond)
+    @output_stream.puts "\ttestl   %eax, %eax"
+    @seq += 2
+    else_arm_seq = @seq - 1
+    end_if_arm_seq = @seq
+    @output_stream.puts "\tje  .L#{else_arm_seq}"
+    compile_exp(if_arm)
+    @output_stream.puts "\tjmp .L#{end_if_arm_seq}"
+    @output_stream.puts ".L#{else_arm_seq}:"
+    compile_exp(else_arm)
+    @output_stream.puts ".L#{end_if_arm_seq}:"
+  end
+
   PTR_SIZE = 8
   REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
   def compile_exp(exp)
     return if !exp || exp.size == 0
 
-    # if first element is :do, recursively compile following 
+    # if first element is :do, recursively compile following
     # entries in the expression.
     if exp[0] == :do
       exp[1..-1].each{ |e| compile_exp(e) }
@@ -130,6 +143,8 @@ EPILOGUE
 
     # function definition.
     return defun(*exp[1..-1]) if (exp[0] == :defun)
+    # if ... else
+    return ifelse(*exp[1..-1]) if (exp[0] == :if) 
     funcall = exp[0].to_s
 
 
@@ -137,7 +152,7 @@ EPILOGUE
     if exp.size > 1
 
       # The current implementation (slightly different to the articles’)
-      # requires to know in advance the number of args of the function 
+      # requires to know in advance the number of args of the function
       # to be able properly choose registers — hence this double iteration
       # of exp[1..-1].
       # Args must be reversed to be passed to functions.
@@ -149,12 +164,12 @@ EPILOGUE
         stack_adjustment = [((args.size-REGISTERS.size) * PTR_SIZE), 16].max
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
-      
+
       exp[1..-1].reverse.each_with_index do |a, i|
         atype, aparam = get_arg(a)
         if atype == :strconst
           param = "$.LC#{aparam}"
-        elsif atype == :int then param = "$#{aparam}" 
+        elsif atype == :int then param = "$#{aparam}"
         else
           param = "%eax"
         end
@@ -166,9 +181,9 @@ EPILOGUE
     end
     @output_stream.puts "\tcall\t#{funcall}"
   end
-  
+
   def get_register(index)
-    if index > REGISTERS.size 
+    if index > REGISTERS.size
       i = (index - REGISTERS.size - 1) * PTR_SIZE
       "#{i>0 ? i : ""}(%rsp)"
     else
@@ -195,7 +210,7 @@ main:
 PROLOG
 
     compile_exp(exp)
-    
+
     if @seq > REGISTERS.size
       @output_stream.puts "\tleave" # What does that mean?
     else
@@ -214,9 +229,9 @@ EPILOG
 
   end
 
-  def compile(exp) 
-    compile_main([:do, DO_BEFORE, exp, DO_AFTER]) 
-  end 
+  def compile(exp)
+    compile_main([:do, DO_BEFORE, exp, DO_AFTER])
+  end
 
 end
 
@@ -236,9 +251,20 @@ end
 #prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
 #prog = [:hello_world]
 
+# prog = [:do,
+#   [:printf,"'hello world' takes %d bytes\\n", 11],
+#   [:printf,"The above should show _%d_ bytes\\n",11]
+# ]
+
 prog = [:do,
-  [:printf,"'hello world' takes %d bytes\\n", 11],
-  [:printf,"The above should show _%d_ bytes\\n",11]
+  [:if, [:strlen,""],
+    [:puts, "IF: The string was not empty"],
+    [:puts, "ELSE: The string was empty"]
+  ],
+  [:if, [:strlen,"Test"],
+    [:puts, "Second IF: The string was not empty"],
+    [:puts, "Second IF: The string was empty"]
+  ]
 ]
 
 Compiler.new.compile(prog)
