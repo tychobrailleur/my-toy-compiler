@@ -137,7 +137,7 @@ EPILOGUE
     name = "lambda__#{@seq}"
     @seq += 1
     compile_defun(name, args, body)
-    @output_stream.puts "\tmovl\t$#{name}, %eax"
+    @output_stream.puts "\tmovq\t$#{name}, %rax"
     return [:subexpr]
   end
 
@@ -146,7 +146,7 @@ EPILOGUE
     return "$.LC#{aparam}" if atype == :strconst
     return "$#{aparam}" if atype == :int
     return aparam.to_s if atype == :atom
-    return"%eax"
+    return "*%rax"
   end
 
   def compile_do(*exp)
@@ -171,7 +171,9 @@ EPILOGUE
         @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
-    @output_stream.puts "\tcall\t#{function}"
+
+    res = compile_eval_arg(function)
+    @output_stream.puts "\tcall\t#{res}"
     return [:subexpr]
   end
 
@@ -186,6 +188,7 @@ EPILOGUE
     # if ... else
     return compile_ifelse(*exp[1..-1]) if (exp[0] == :if) 
     return compile_lambda(*exp[1..-1]) if (exp[0] == :lambda)
+    return compile_call(exp[1], exp[2]) if (exp[0] == :call)
     return compile_call(exp[0], exp[1..-1])
   end
 
@@ -199,7 +202,7 @@ EPILOGUE
   end
 
   def compile_main(exp)
-    @output_stream.puts "	.file	\"bootstrap.rb\""
+    @output_stream.puts "\t.file\t\"bootstrap.rb\""
 
     # Taken from gcc -S output
     @output_stream.puts <<PROLOG
@@ -249,7 +252,7 @@ end
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
-prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
+#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
 #   [:printf, "Hello %s", "World"],
 #   [:printf, " "],
@@ -273,5 +276,9 @@ prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy"
 #     [:puts, "Second IF: The string was empty"]
 #   ]
 # ]
+
+prog = [:do,
+  [:call, [:lambda, [], [:puts, "Test"]], [] ]
+]
 
 Compiler.new.compile(prog)
