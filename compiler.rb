@@ -149,41 +149,21 @@ EPILOGUE
     return"%eax"
   end
 
-  def compile_exp(exp)
-    return if !exp || exp.size == 0
+  def compile_do(*exp)
+    exp.each { |e| compile_exp(e) }
+    return [:subexpr]
+  end
 
-    # if first element is :do, recursively compile following
-    # entries in the expression.
-    if exp[0] == :do
-      exp[1..-1].each{ |e| compile_exp(e) }
-      return
-    end
-
-    # function definition.
-    return compile_defun(*exp[1..-1]) if (exp[0] == :defun)
-    # if ... else
-    return compile_ifelse(*exp[1..-1]) if (exp[0] == :if) 
-    funcall = exp[0].to_s
-
-
+  def compile_call(function, args)
     # if the function call has arguments.
-    if exp.size > 1
-
-      # The current implementation (slightly different to the articles’)
-      # requires to know in advance the number of args of the function
-      # to be able properly choose registers — hence this double iteration
-      # of exp[1..-1].
-      # Args must be reversed to be passed to functions.
-      # args = exp[1..-1].reverse.collect { |a| get_arg(a) }
-      args = exp[1..-1].collect { |a| get_arg(a) }
-
+    if args.size > 0
       if args.size > REGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
         stack_adjustment = [((args.size-REGISTERS.size) * PTR_SIZE), 16].max
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
 
-      exp[1..-1].reverse.each_with_index do |a, i|
+      args.reverse.each_with_index do |a, i|
         param = compile_eval_arg(a)
 
         # Using 64 bits instructions for the stack
@@ -191,7 +171,22 @@ EPILOGUE
         @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
-    @output_stream.puts "\tcall\t#{funcall}"
+    @output_stream.puts "\tcall\t#{function}"
+    return [:subexpr]
+  end
+
+  def compile_exp(exp)
+    return if !exp || exp.size == 0
+
+    # if first element is :do, recursively compile following
+    # entries in the expression.
+    return compile_do(*exp[1..-1]) if exp[0] == :do
+    # function definition.
+    return compile_defun(*exp[1..-1]) if (exp[0] == :defun)
+    # if ... else
+    return compile_ifelse(*exp[1..-1]) if (exp[0] == :if) 
+    return compile_lambda(*exp[1..-1]) if (exp[0] == :lambda)
+    return compile_call(exp[0], exp[1..-1])
   end
 
   def get_register(index)
@@ -254,7 +249,7 @@ end
 #prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
 #prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
 #prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
-#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
+prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
 # prog = [ :do,
 #   [:printf, "Hello %s", "World"],
 #   [:printf, " "],
@@ -268,15 +263,15 @@ end
 #   [:printf,"The above should show _%d_ bytes\\n",11]
 # ]
 
-prog = [:do,
-  [:if, [:strlen,""],
-    [:puts, "IF: The string was not empty"],
-    [:puts, "ELSE: The string was empty"]
-  ],
-  [:if, [:strlen,"Test"],
-    [:puts, "Second IF: The string was not empty"],
-    [:puts, "Second IF: The string was empty"]
-  ]
-]
+# prog = [:do,
+#   [:if, [:strlen,""],
+#     [:puts, "IF: The string was not empty"],
+#     [:puts, "ELSE: The string was empty"]
+#   ],
+#   [:if, [:strlen,"Test"],
+#     [:puts, "Second IF: The string was not empty"],
+#     [:puts, "Second IF: The string was empty"]
+#   ]
+# ]
 
 Compiler.new.compile(prog)
