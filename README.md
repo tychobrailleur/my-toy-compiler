@@ -10,7 +10,7 @@ suboptimal, or plain incorrect.
 
 The command used to compile is:
 
-    ruby stuff.rb > hello.s ; gcc -o hello hello.s
+    ruby compiler.rb > hello.s ; gcc -o hello hello.s
 
 Some useful links:
 
