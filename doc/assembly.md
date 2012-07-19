@@ -1,7 +1,7 @@
 As I am using `gcc -S` to figure out the code that needs to be
 generated, this page describes GNU AS as I understand it — usual
-warnings here: this is my own understanding of how it works, it could be
-incorrect...
+warnings here: this is my own understanding of how it works, it could
+be incorrect...
 
 
 
@@ -83,6 +83,11 @@ Last, restore base pointer:
 ## Pseudo-Ops
 
 * `.globl`, or `.global`: makes the symbol visible for linking.
+* `.section name`: indicates that code must be assembled into a section named `name` (e.g. `rodata`, read-only data)
+* `.string "A String"`: copies characters into the binary file and ends it with a 0 byte.
+* `.text subsection`: indicates that the code must be assembled onto the end of the text subsection _subsection_; if no subsection specified, subsection _0_.
+
+See also: http://sourceware.org/binutils/docs/as/Pseudo-Ops.html
 
 ## CFI Directives 
 
@@ -101,11 +106,14 @@ Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Backg
 
 * http://scr.csc.noctrl.edu/courses/csc220/asm/GnuFTPl.htm
 * http://scr.csc.noctrl.edu/courses/csc220/asm/gasmanual.pdf
+* http://cs.nyu.edu/courses/fall11/CSCI-GA.2130-001/x64-intro.pdf
 * http://gcc.gnu.org/viewcvs/trunk/gcc/dwarf2out.c?view=markup
 * http://www.logix.cz/michal/devel/gas-cfi/
+* http://x86-64.org/documentation/abi.pdf
 
 ## Other Abbreviations
 
+* ABI: Application Binary Interface
 * CFA: Canonical Frame Address, a fixed address on the stack which identifies a call frame.
 * CFI: Call Frame Instruction
 
