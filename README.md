@@ -1,6 +1,6 @@
 This is my first attempt at a simple compiler following the Ruby
  compiler series:
- http://www.hokstad.com/writing-a-compiler-in-ruby-bottom-up-step-2.html
+ http://www.hokstad.com/tag/compiler%20in%20Ruby%20bottom%20up
 
 The article however uses x86 assembler, when this is an attempt at
 generating x64 assembler.  I know nothing of x64 assembler, and the
