@@ -2,6 +2,11 @@
 
 require 'logger'
 
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "lib"))
+
+require 'function'
+require 'scope'
+
 # This is my first attempt at a simple compiler following the Ruby
 # compiler series:
 # http://www.hokstad.com/writing-a-compiler-in-ruby-bottom-up-step-2.html
@@ -33,6 +38,7 @@ class Compiler
 
   PTR_SIZE = 8
   REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
+  RREGISTERS = ["r9", "r8", "rcx", "rdx", "rsi", "rdi"]
 
   attr_writer :output_stream
 
@@ -49,15 +55,15 @@ class Compiler
 
 
   # returns the sequence number for a given string.
-  def get_arg(a)
+  def get_arg(scope, a)
     # If argument is an array, we recursively compile it.
     if a.is_a?(Array)
-      compile_exp(a)
+      compile_exp(scope, a)
       return [:subexpr]
     end
 
     return [:int, a] if (a.is_a?(Fixnum))
-    return [:atom, a] if (a.is_a?(Symbol))
+    return scope.get_arg(a) if (a.is_a?(Symbol))
 
     # handling strings.
     # check if string is present in constants already.
@@ -84,7 +90,7 @@ class Compiler
   #
   # Emits assembly code for functions.
   def output_functions
-    @global_functions.each do |name,data|
+    @global_functions.each do |name, function|
       @function_sequence += 1
       @output_stream.puts <<PROLOG
 	.globl	#{name}
@@ -98,7 +104,13 @@ class Compiler
 	movq	%rsp, %rbp
 	.cfi_def_cfa_register 6
 PROLOG
-      compile_exp(data[1])
+
+      # Here get args
+      function.args.each_with_index do |a,i|
+        @output_stream.puts("\tmovq\t%#{RREGISTERS[RREGISTERS.size-1-i]}, -#{PTR_SIZE*(i+1)}(%rbp)")
+      end
+
+      compile_exp(Scope.new(self, function), function.body)
 
       @output_stream.puts <<EPILOGUE
 	popq	%rbp
@@ -114,47 +126,56 @@ EPILOGUE
   end
 
   # defines a function.
-  def compile_defun(name, args, body)
-    @global_functions[name] = [args,body]
+  def compile_defun(scope, name, args, body)
+    @global_functions[name] = Function.new(args, body)
+    [:subexpr]
   end
 
   # emits code for if ... else.
-  def compile_ifelse(cond, if_arm, else_arm)
-    compile_exp(cond)
+  def compile_ifelse(scope, cond, if_arm, else_arm)
+    compile_exp(scope, cond)
     @output_stream.puts "\ttestl   %eax, %eax"
     @seq += 2
     else_arm_seq = @seq - 1
     end_if_arm_seq = @seq
     @output_stream.puts "\tje  .L#{else_arm_seq}"
-    compile_exp(if_arm)
+    compile_exp(scope, if_arm)
     @output_stream.puts "\tjmp .L#{end_if_arm_seq}"
     @output_stream.puts ".L#{else_arm_seq}:"
-    compile_exp(else_arm)
+    compile_exp(scope, else_arm)
     @output_stream.puts ".L#{end_if_arm_seq}:"
   end
 
-  def compile_lambda(args, body)
+  def compile_lambda(scope, args, body)
     name = "lambda__#{@seq}"
     @seq += 1
-    compile_defun(name, args, body)
+    compile_defun(scope, name, args, body)
     @output_stream.puts "\tmovq\t$#{name}, %rax"
     return [:subexpr]
   end
 
-  def compile_eval_arg(arg)
-    atype, aparam = get_arg(arg)
+  def compile_eval_arg(scope, arg)
+    atype, aparam = get_arg(scope, arg)
     return "$.LC#{aparam}" if atype == :strconst
     return "$#{aparam}" if atype == :int
     return aparam.to_s if atype == :atom
+    if atype == :arg
+      return "-#{PTR_SIZE*(aparam+1)}(%rbp)"
+    end
+
+    # Here put arg...
     return "*%rax"
   end
 
-  def compile_do(*exp)
-    exp.each { |e| compile_exp(e) }
-    return [:subexpr]
+  def compile_do(scope, *exp)
+    exp.each { |e| compile_exp(scope, e) }
+    [:subexpr]
   end
 
-  def compile_call(function, args)
+  # compiles a function call.
+  #
+  #
+  def compile_call(scope, function, args)
     # if the function call has arguments.
     if args.size > 0
       if args.size > REGISTERS.size
@@ -164,7 +185,7 @@ EPILOGUE
       end
 
       args.reverse.each_with_index do |a, i|
-        param = compile_eval_arg(a)
+        param = compile_eval_arg(scope, a)
 
         # Using 64 bits instructions for the stack
         mov_instruction = ((args.size-i) > REGISTERS.size) ? "movq" : "movl"
@@ -172,24 +193,24 @@ EPILOGUE
       end
     end
 
-    res = compile_eval_arg(function)
+    res = compile_eval_arg(scope, function)
     @output_stream.puts "\tcall\t#{res}"
-    return [:subexpr]
+    [:subexpr]
   end
 
-  def compile_exp(exp)
+  def compile_exp(scope, exp)
     return if !exp || exp.size == 0
 
     # if first element is :do, recursively compile following
     # entries in the expression.
-    return compile_do(*exp[1..-1]) if exp[0] == :do
+    return compile_do(scope, *exp[1..-1]) if exp[0] == :do
     # function definition.
-    return compile_defun(*exp[1..-1]) if (exp[0] == :defun)
+    return compile_defun(scope, *exp[1..-1]) if (exp[0] == :defun)
     # if ... else
-    return compile_ifelse(*exp[1..-1]) if (exp[0] == :if) 
-    return compile_lambda(*exp[1..-1]) if (exp[0] == :lambda)
-    return compile_call(exp[1], exp[2]) if (exp[0] == :call)
-    return compile_call(exp[0], exp[1..-1])
+    return compile_ifelse(scope, *exp[1..-1]) if (exp[0] == :if) 
+    return compile_lambda(scope, *exp[1..-1]) if (exp[0] == :lambda)
+    return compile_call(scope, exp[1], exp[2]) if (exp[0] == :call)
+    return compile_call(scope, exp[0], exp[1..-1])
   end
 
   def get_register(index)
@@ -219,7 +240,9 @@ main:
 	.cfi_def_cfa_register 6
 PROLOG
 
-    compile_exp(exp)
+
+    @main = Function.new([], [])
+    compile_exp(Scope.new(self, @main), exp)
 
     if @seq > REGISTERS.size
       @output_stream.puts "\tleave" # What does that mean?
@@ -277,8 +300,14 @@ end
 #   ]
 # ]
 
+# prog = [:do,
+#   [:call, [:lambda, [], [:puts, "Test"]], [] ]
+# ]
+
 prog = [:do,
-  [:call, [:lambda, [], [:puts, "Test"]], [] ]
+  [:defun,:myputs,[:foo],[:puts, :foo]],
+  [:myputs,"Demonstrating argument passing"],
 ]
+
 
 Compiler.new.compile(prog)

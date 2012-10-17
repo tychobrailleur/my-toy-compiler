@@ -61,8 +61,9 @@ Last, restore base pointer:
 * `lea`: Load effective address.
 * `add`: Integer addition.
 
-* `call`, `ret`: Subroutine call, and return.
+* `call`, `ret`: Subroutine call, and return. The call instruction pushes the return address on the stack.
 
+* `int`: Call to interrupt.  The interrupt number is passed as a parameter and is a byte.
 
 ## C Function call
 

@@ -5,8 +5,8 @@ require 'compiler'
 
 
 def compile_and_check(compiler, code, expected)
-  do_and_check(compiler, code, expected) do |c|
-    c.compile_exp(code)
+  do_and_check(compiler, code, expected) do |c,s|
+    c.compile_exp(s, code)
 
     if block_given?
       yield(compiler)
@@ -18,7 +18,9 @@ def do_and_check(compiler, code, expected)
   output = StringIO.new
   compiler.output_stream = output
 
-  yield(compiler)
+  scope = Scope.new(compiler, Function.new([], []))
+
+  yield(compiler, scope)
 
   output.string.should eq(expected)
 end

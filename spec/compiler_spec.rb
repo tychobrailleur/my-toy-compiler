@@ -113,7 +113,7 @@ hello_world:
 	.size	hello_world, .-hello_world
 
 EXPECTED
-    compile_and_check(compiler, prog, expected_output) do |c|
+    compile_and_check(compiler, prog, expected_output) do |c, s|
       c.output_functions
     end
   end
@@ -170,7 +170,7 @@ lambda__0:
 	.size	lambda__0, .-lambda__0
 
 EXPECTED
-    compile_and_check(compiler, prog, expected_output) do |c|
+    compile_and_check(compiler, prog, expected_output) do |c, s|
       c.output_functions
     end
   end
