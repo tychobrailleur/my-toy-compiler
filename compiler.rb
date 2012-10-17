@@ -38,6 +38,10 @@ class Compiler
 
   PTR_SIZE = 8
   REGISTERS = ["r9d", "r8d", "ecx", "edx", "esi", "edi"]
+  # Temporary of 64 bits registers.  Will have to come up with
+  # a way of handling just one, and getting the right register
+  # name when dealing with 32 or 64 bits.
+  # Or just use 64 bits everywhere?
   RREGISTERS = ["r9", "r8", "rcx", "rdx", "rsi", "rdi"]
 
   attr_writer :output_stream
@@ -159,13 +163,19 @@ EPILOGUE
     return "$.LC#{aparam}" if atype == :strconst
     return "$#{aparam}" if atype == :int
     return aparam.to_s if atype == :atom
-    if atype == :arg
-      return "-#{PTR_SIZE*(aparam+1)}(%rbp)"
-    end
+    return "-#{PTR_SIZE*(aparam+1)}(%rbp)" if atype == :arg
 
     # Here put arg...
-    return "*%rax"
+    return "%rax"
   end
+
+  def compile_assign(scope, left, right )
+    source = compile_eval_arg(scope, right) 
+    atype, aparam = get_arg(scope,left) 
+    raise "Expected a variable on left hand side of assignment" if atype != :arg 
+    puts "\tmovq\t#{source}, -#{PTR_SIZE*(aparam+1)}(%rbp)"
+    return [:subexpr] 
+  end 
 
   def compile_do(scope, *exp)
     exp.each { |e| compile_exp(scope, e) }
@@ -194,6 +204,7 @@ EPILOGUE
     end
 
     res = compile_eval_arg(scope, function)
+    res = "*" + res if res == "%rax"
     @output_stream.puts "\tcall\t#{res}"
     [:subexpr]
   end
@@ -210,6 +221,7 @@ EPILOGUE
     return compile_ifelse(scope, *exp[1..-1]) if (exp[0] == :if) 
     return compile_lambda(scope, *exp[1..-1]) if (exp[0] == :lambda)
     return compile_call(scope, exp[1], exp[2]) if (exp[0] == :call)
+    return compile_assign(scope, *exp[1..-1]) if (exp[0] == :assign) 
     return compile_call(scope, exp[0], exp[1..-1])
   end
 
@@ -304,10 +316,17 @@ end
 #   [:call, [:lambda, [], [:puts, "Test"]], [] ]
 # ]
 
-prog = [:do,
-  [:defun,:myputs,[:foo],[:puts, :foo]],
-  [:myputs,"Demonstrating argument passing"],
-]
+# prog = [:do,
+#   [:defun,:myputs,[:foo],[:puts, :foo]],
+#   [:myputs,"Demonstrating argument passing"],
+# ]
 
+prog = [:call, [:lambda, [:i],
+    [:do,
+      [:printf, "Testing sub and assign (before): %ld\\n", :i],
+      [:assign, :i, [:sub, 4, 2]],
+      [:printf, "Testing sub and assign (after): %ld\\n", :i],
+    ]
+  ], [10] ]
 
 Compiler.new.compile(prog)
