@@ -1,4 +1,5 @@
 #!/bin/env ruby
+# coding: utf-8
 
 require 'logger'
 
@@ -15,11 +16,7 @@ require 'scope'
 # generating x64 assembler.  I know nothing of x64 assembler, and the
 # code generated is deduced from `gcc -S` as indicated by the article
 # series.  This means that more than likely the code is either
-# suboptimal, or plain incorrect.  In particular, the convoluted way
-# in which the label sequence is computed is due to the fact that I
-# wanted to keep the registers used for the function call args in the
-# order returned by gcc.  I actually have no idea what the registers
-# may be, or if they could ordered differently.
+# suboptimal, or plain incorrect.
 #
 # The command used to compile is:
 # ruby stuff.rb > hello.s ; gcc -o hello hello.s
@@ -109,6 +106,12 @@ class Compiler
 	.cfi_def_cfa_register 6
 PROLOG
 
+      # Print stack adjustment.
+      if function.args.size > 0
+        stack_adjustment = [((function.args.size-REGISTERS.size) * PTR_SIZE), 16].max
+        @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
+      end
+
       # Here get args
       function.args.each_with_index do |a,i|
         @output_stream.puts("\tmovq\t%#{RREGISTERS[RREGISTERS.size-1-i]}, -#{PTR_SIZE*(i+1)}(%rbp)")
@@ -116,8 +119,14 @@ PROLOG
 
       compile_exp(Scope.new(self, function), function.body)
 
+
+      if function.args.size > 0
+        @output_stream.puts("leave")
+      else 
+        @output_stream.puts("\tpopq\t%rbp")
+      end
+
       @output_stream.puts <<EPILOGUE
-	popq	%rbp
 	.cfi_def_cfa 7, 8
 	ret
 	.cfi_endproc
@@ -150,6 +159,21 @@ EPILOGUE
     @output_stream.puts ".L#{end_if_arm_seq}:"
   end
 
+  # emits code for while.
+  def compile_while(scope, cond, body)
+    start_while_seq = @seq
+    cond_seq = @seq + 1
+    @seq += 2
+    @output_stream.puts "\tjmp\t.L#{cond_seq}"
+    @output_stream.puts ".L#{start_while_seq}:"
+    compile_exp(scope,body)
+    @output_stream.puts ".L#{cond_seq}:"
+    var = compile_eval_arg(scope,cond)
+    @output_stream.puts "\tcmpq\t$0, #{var}"
+    @output_stream.puts "\tjne\t.L#{start_while_seq}"
+    return [:subexpr]
+  end
+
   def compile_lambda(scope, args, body)
     name = "lambda__#{@seq}"
     @seq += 1
@@ -169,11 +193,12 @@ EPILOGUE
     return "%rax"
   end
 
-  def compile_assign(scope, left, right )
+  def compile_assign(scope, left, right)
     source = compile_eval_arg(scope, right) 
     atype, aparam = get_arg(scope,left) 
     raise "Expected a variable on left hand side of assignment" if atype != :arg 
-    puts "\tmovq\t#{source}, -#{PTR_SIZE*(aparam+1)}(%rbp)"
+    @output_stream.puts("#assignment")
+    @output_stream.puts "\tmovq\t#{source}, -#{PTR_SIZE*(aparam+1)}(%rbp)"
     return [:subexpr] 
   end 
 
@@ -187,6 +212,7 @@ EPILOGUE
   #
   def compile_call(scope, function, args)
     # if the function call has arguments.
+    
     if args.size > 0
       if args.size > REGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
@@ -219,6 +245,7 @@ EPILOGUE
     return compile_defun(scope, *exp[1..-1]) if (exp[0] == :defun)
     # if ... else
     return compile_ifelse(scope, *exp[1..-1]) if (exp[0] == :if) 
+    return compile_while(scope,*exp[1..-1]) if (exp[0] == :while)
     return compile_lambda(scope, *exp[1..-1]) if (exp[0] == :lambda)
     return compile_call(scope, exp[1], exp[2]) if (exp[0] == :call)
     return compile_assign(scope, *exp[1..-1]) if (exp[0] == :assign) 
@@ -256,6 +283,7 @@ PROLOG
     @main = Function.new([], [])
     compile_exp(Scope.new(self, @main), exp)
 
+    # @seq??  That looks wrong.
     if @seq > REGISTERS.size
       @output_stream.puts "\tleave" # What does that mean?
     else
@@ -321,12 +349,24 @@ end
 #   [:myputs,"Demonstrating argument passing"],
 # ]
 
-prog = [:call, [:lambda, [:i],
-    [:do,
-      [:printf, "Testing sub and assign (before): %ld\\n", :i],
-      [:assign, :i, [:sub, 4, 2]],
-      [:printf, "Testing sub and assign (after): %ld\\n", :i],
-    ]
-  ], [10] ]
+# prog = [:call, [:lambda, [:i],
+#     [:do,
+#       [:printf, "Testing sub and assign (before): %ld\\n", :i],
+#       [:assign, :i, [:sub, 4, 2]],
+#       [:printf, "Testing sub and assign (after): %ld\\n", :i],
+#     ]
+#   ], [10] ]
+
+prog = [:do,
+  [:call, [:lambda, [:i],
+      [:while,
+        :i,
+        [:do,
+          [:printf, "Countdown: %ld\\n", :i],
+          [:assign, :i, [:sub, :i, 1]]
+        ]
+      ]
+    ], [10] ]
+  ]
 
 Compiler.new.compile(prog)
