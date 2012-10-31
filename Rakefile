@@ -11,3 +11,8 @@ task :compile do
   sh "ruby compiler.rb > hello.s"
   sh "gcc -o hello hello.s runtime.c"
 end
+
+task :parser do
+  sh "ruby parser.rb > parser.s"
+  sh "gcc -o parser parser.s runtime.c"  
+end

@@ -1,4 +1,4 @@
-
+#include<stdio.h>
 signed int add(signed int a, signed int b)
 {
   return a + b;
@@ -21,6 +21,7 @@ signed int mul(signed int a, signed int b)
 
 signed int ne(signed int a, signed int b)
 {
+    //  printf("na: %d != %d %d", a, b, (a!=b));
   return a != b;
 }
 
@@ -38,6 +39,7 @@ signed int not(signed int a)
 // evaluation happens before this function is called.
 signed int and(signed int a, signed int b)
 {
+ printf("and: %d && %d %d", a, b, (a&&b));
   return a && b;
 }
 

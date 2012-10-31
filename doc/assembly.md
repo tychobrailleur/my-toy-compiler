@@ -39,7 +39,7 @@ According to [AMD’s documentation](http://support.amd.com/us/Processor_TechDoc
 * Register indexed: When using an offset with an index register:
     movl $45, 12(%ebx)
 
-### Example of function call
+### Function calls
 
 First, save the base pointer:
 
@@ -51,8 +51,18 @@ Last, restore base pointer:
     popq %rbp
     ret
 
+See also http://www.delorie.com/djgpp/doc/ug/asm/calling.html
+
+Each function has a frame on the runtime stack, which grows downwards.
+
+
+## Fastcall registers
+
+Fastcall passes the first 4 integers (and pointers) in the registers `rcx`, `rdx`, `r8` and `r9`.  The following arguments are passed on the stack. See also http://www.x86-64.org/documentation/abi.pdf
 
 ## Instructions
+
+* `leave`: frees the space saved on the stack by copying ebp into esp, then popping the saved value of esp back to ebp.
 
 * `mov`: Copies data. Example:
 

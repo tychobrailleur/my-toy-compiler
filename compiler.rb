@@ -57,12 +57,9 @@ class Compiler
 
   # returns the sequence number for a given string.
   def get_arg(scope, a)
+    @output_stream.puts("# get_arg(#{a})")
     # If argument is an array, we recursively compile it.
-    if a.is_a?(Array)
-      compile_exp(scope, a)
-      return [:subexpr]
-    end
-
+    return compile_exp(scope, a) if a.is_a?(Array)
     return [:int, a] if (a.is_a?(Fixnum))
     return scope.get_arg(a) if (a.is_a?(Symbol))
 
@@ -119,7 +116,6 @@ PROLOG
 
       compile_exp(Scope.new(self, function), function.body)
 
-
       if function.args.size > 0
         @output_stream.puts("leave")
       else 
@@ -145,7 +141,7 @@ EPILOGUE
   end
 
   # emits code for if ... else.
-  def compile_ifelse(scope, cond, if_arm, else_arm)
+  def compile_ifelse(scope, cond, if_arm, else_arm = nil)
     compile_exp(scope, cond)
     @output_stream.puts "\ttestl   %eax, %eax"
     @seq += 2
@@ -157,6 +153,7 @@ EPILOGUE
     @output_stream.puts ".L#{else_arm_seq}:"
     compile_exp(scope, else_arm)
     @output_stream.puts ".L#{end_if_arm_seq}:"
+    [:subexpr]
   end
 
   # emits code for while.
@@ -196,8 +193,7 @@ EPILOGUE
   def compile_assign(scope, left, right)
     source = compile_eval_arg(scope, right) 
     atype, aparam = get_arg(scope,left) 
-    raise "Expected a variable on left hand side of assignment" if atype != :arg 
-    @output_stream.puts("#assignment")
+    raise "Expected a variable on left hand side of assignment" if atype != :arg
     @output_stream.puts "\tmovq\t#{source}, -#{PTR_SIZE*(aparam+1)}(%rbp)"
     return [:subexpr] 
   end 
@@ -208,11 +204,8 @@ EPILOGUE
   end
 
   # compiles a function call.
-  #
-  #
   def compile_call(scope, function, args)
     # if the function call has arguments.
-    
     if args.size > 0
       if args.size > REGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
@@ -224,7 +217,9 @@ EPILOGUE
         param = compile_eval_arg(scope, a)
 
         # Using 64 bits instructions for the stack
-        mov_instruction = ((args.size-i) > REGISTERS.size) ? "movq" : "movl"
+        # mov_instruction = ((args.size-i) > RREGISTERS.size) ? "movq" : "movl"
+        # Temporarily default everything to 64 bits registers
+        mov_instruction = "movq"
         @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
@@ -253,11 +248,11 @@ EPILOGUE
   end
 
   def get_register(index)
-    if index > REGISTERS.size
-      i = (index - REGISTERS.size - 1) * PTR_SIZE
+    if index > RREGISTERS.size
+      i = (index - RREGISTERS.size - 1) * PTR_SIZE
       "#{i>0 ? i : ""}(%rsp)"
     else
-      "%#{REGISTERS[REGISTERS.size-index]}"
+      "%#{RREGISTERS[RREGISTERS.size-index]}"
     end
   end
 
@@ -285,7 +280,7 @@ PROLOG
 
     # @seq??  That looks wrong.
     if @seq > REGISTERS.size
-      @output_stream.puts "\tleave" # What does that mean?
+      @output_stream.puts "\tleave"
     else
       @output_stream.puts "\tpopq\t%rbp"
     end
@@ -307,66 +302,3 @@ EPILOG
   end
 
 end
-
-
-#prog = [:getchar]
-#prog = [:printf, "Hello\\n"]
-#prog = [:printf, "Hello %s\\n", "World"]
-#prog = [:printf,"Hello %s %s\\n", "Cruel", "World"]
-#prog = [:printf,"Hello %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi"]
-#prog = [:printf,"Hello %s %s %s %s %s %s\\n", "Cruel", "World", "Bonjour", "Monde", "Aussi", "."]
-#prog = [:printf,"%s %s %s %s %s %s %s %s %s\\n", "Hello", "World", "Again", "Oy", "Senta", "Scusi", "Bonjour", "Monde", "encore"]
-# prog = [ :do,
-#   [:printf, "Hello %s", "World"],
-#   [:printf, " "],
-#   [:printf, "World\\n"]
-# ]
-#prog = [:printf,"'hello world' takes %ld bytes\\n",[:echo, "hello world"]]
-#prog = [:hello_world]
-
-# prog = [:do,
-#   [:printf,"'hello world' takes %d bytes\\n", 11],
-#   [:printf,"The above should show _%d_ bytes\\n",11]
-# ]
-
-# prog = [:do,
-#   [:if, [:strlen,""],
-#     [:puts, "IF: The string was not empty"],
-#     [:puts, "ELSE: The string was empty"]
-#   ],
-#   [:if, [:strlen,"Test"],
-#     [:puts, "Second IF: The string was not empty"],
-#     [:puts, "Second IF: The string was empty"]
-#   ]
-# ]
-
-# prog = [:do,
-#   [:call, [:lambda, [], [:puts, "Test"]], [] ]
-# ]
-
-# prog = [:do,
-#   [:defun,:myputs,[:foo],[:puts, :foo]],
-#   [:myputs,"Demonstrating argument passing"],
-# ]
-
-# prog = [:call, [:lambda, [:i],
-#     [:do,
-#       [:printf, "Testing sub and assign (before): %ld\\n", :i],
-#       [:assign, :i, [:sub, 4, 2]],
-#       [:printf, "Testing sub and assign (after): %ld\\n", :i],
-#     ]
-#   ], [10] ]
-
-prog = [:do,
-  [:call, [:lambda, [:i],
-      [:while,
-        :i,
-        [:do,
-          [:printf, "Countdown: %ld\\n", :i],
-          [:assign, :i, [:sub, :i, 1]]
-        ]
-      ]
-    ], [10] ]
-  ]
-
-Compiler.new.compile(prog)
