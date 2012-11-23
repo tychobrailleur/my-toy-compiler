@@ -70,6 +70,9 @@ Fastcall passes the first 4 integers (and pointers) in the registers `rcx`, `rdx
 
 * `lea`: Load effective address.
 * `add`: Integer addition.
+* `imul`: Signed multiply.
+* `sall`: arithmetic shift left. 
+* `sarl`: arithmetic shift right. 
 
 * `call`, `ret`: Subroutine call, and return. The call instruction pushes the return address on the stack.
 
@@ -121,6 +124,7 @@ Sections: http://sourceware.org/binutils/docs/as/Secs-Background.html#Secs-Backg
 * http://gcc.gnu.org/viewcvs/trunk/gcc/dwarf2out.c?view=markup
 * http://www.logix.cz/michal/devel/gas-cfi/
 * http://x86-64.org/documentation/abi.pdf
+* http://eli.thegreenplace.net/2011/09/06/stack-frame-layout-on-x86-64/
 
 ## Other Abbreviations
 
