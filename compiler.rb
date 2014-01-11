@@ -40,8 +40,6 @@ class Compiler
   # name when dealing with 32 or 64 bits.
   # Or just use 64 bits everywhere?
   RREGISTERS = ["r9", "r8", "rcx", "rdx", "rsi", "rdi"]
-  TEMPORARIES = ["r15", "r14", "r13", "r12", "r11", "rbx"]
-  KEYWORDS = ["if", "do", "while", "defun", "lambda", "call", "assign"]
 
   attr_writer :output_stream
 
@@ -59,7 +57,7 @@ class Compiler
 
   # returns the sequence number for a given string.
   def get_arg(scope, a)
-#    @output_stream.puts("# get_arg(#{a})")
+    @output_stream.puts("# get_arg(#{a})")
     # If argument is an array, we recursively compile it.
     return compile_exp(scope, a) if a.is_a?(Array)
     return [:int, a] if (a.is_a?(Fixnum))
@@ -181,6 +179,17 @@ EPILOGUE
     return [:subexpr]
   end
 
+  def compile_eval_arg(scope, arg)
+    atype, aparam = get_arg(scope, arg)
+    return "$.LC#{aparam}" if atype == :strconst
+    return "$#{aparam}" if atype == :int
+    return aparam.to_s if atype == :atom
+    return "-#{PTR_SIZE*(aparam+1)}(%rbp)" if atype == :arg
+
+    # Here put arg...
+    return "%rax"
+  end
+
   def compile_assign(scope, left, right)
     source = compile_eval_arg(scope, right) 
     atype, aparam = get_arg(scope,left) 
@@ -194,29 +203,6 @@ EPILOGUE
     [:subexpr]
   end
 
-  def compile_eval_arg(scope, arg)
-    atype, aparam = get_arg(scope, arg)
-    return "$.LC#{aparam}" if atype == :strconst
-    return "$#{aparam}" if atype == :int
-    return aparam.to_s if atype == :atom
-    return "-#{PTR_SIZE*(aparam+1)}(%rbp)" if atype == :arg
-
-    # Here put arg...
-    return "%rax"
-  end
-
-  # returns true if the arguments contain more than one function call.
-  def function_call?(args)
-    flag = false
-    args.each do |a|
-      if a.is_a?(Array) && KEYWORDS.index(a[0]) == nil
-        return true if flag
-        flag = true
-      end
-    end
-    false
-  end
-
   # compiles a function call.
   def compile_call(scope, function, args)
     # if the function call has arguments.
@@ -227,25 +213,14 @@ EPILOGUE
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
 
-      temporary_needed = function_call?(args)
-      args_buffer = []
-      temp = 0
-
       args.reverse.each_with_index do |a, i|
         param = compile_eval_arg(scope, a)
-        # Check if function call and not last argument
-        if temporary_needed && a.is_a?(Array) && KEYWORDS.index(a[0]) == nil && i < (args.size-1)
-          temp_register = TEMPORARIES[-1-temp]
-          temp += 1
-          @output_stream.puts "\tmovq\t#{param}, %#{temp_register}"
-          args_buffer << "\tmovq\t%#{temp_register}, #{get_register(args.size-i)}"
-        else 
-          args_buffer << "\tmovq\t#{param}, #{get_register(args.size-i)}"
-        end
-      end
 
-      args_buffer.each do |b|
-        @output_stream.puts b
+        # Using 64 bits instructions for the stack
+        # mov_instruction = ((args.size-i) > RREGISTERS.size) ? "movq" : "movl"
+        # Temporarily default everything to 64 bits registers
+        mov_instruction = "movq"
+        @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
 
