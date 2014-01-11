@@ -57,7 +57,6 @@ class Compiler
 
   # returns the sequence number for a given string.
   def get_arg(scope, a)
-    @output_stream.puts("# get_arg(#{a})")
     # If argument is an array, we recursively compile it.
     return compile_exp(scope, a) if a.is_a?(Array)
     return [:int, a] if (a.is_a?(Fixnum))
@@ -105,13 +104,15 @@ PROLOG
 
       # Print stack adjustment.
       if function.args.size > 0
-        stack_adjustment = [((function.args.size-REGISTERS.size) * PTR_SIZE), 16].max
+        index = [RREGISTERS.size, function.args.size].min
+        stack_adjustment = [(index * PTR_SIZE), 16].max
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
 
       # Here get args
       function.args.each_with_index do |a,i|
-        @output_stream.puts("\tmovq\t%#{RREGISTERS[RREGISTERS.size-1-i]}, -#{PTR_SIZE*(i+1)}(%rbp)")
+        register = RREGISTERS[RREGISTERS.size-1-i]
+        @output_stream.puts("\tmovq\t%#{register}, -#{PTR_SIZE*(i+1)}(%rbp)") if i < 6
       end
 
       compile_exp(Scope.new(self, function), function.body)
@@ -184,7 +185,9 @@ EPILOGUE
     return "$.LC#{aparam}" if atype == :strconst
     return "$#{aparam}" if atype == :int
     return aparam.to_s if atype == :atom
-    return "-#{PTR_SIZE*(aparam+1)}(%rbp)" if atype == :arg
+    return (aparam >= RREGISTERS.size ?
+              "#{(aparam-RREGISTERS.size+2)*PTR_SIZE}(%rbp)"
+            : "-#{PTR_SIZE*(aparam+1)}(%rbp)") if atype == :arg
 
     # Here put arg...
     return "%rax"
@@ -207,9 +210,9 @@ EPILOGUE
   def compile_call(scope, function, args)
     # if the function call has arguments.
     if args.size > 0
-      if args.size > REGISTERS.size
+      if args.size > RREGISTERS.size
         # This is just a guess... It looks like minimum is 16, though?
-        stack_adjustment = [((args.size-REGISTERS.size) * PTR_SIZE), 16].max
+        stack_adjustment = [((args.size-RREGISTERS.size) * PTR_SIZE), 16].max
         @output_stream.puts "\tsubq\t$#{stack_adjustment}, %rsp"
       end
 
@@ -217,9 +220,8 @@ EPILOGUE
         param = compile_eval_arg(scope, a)
 
         # Using 64 bits instructions for the stack
-        # mov_instruction = ((args.size-i) > RREGISTERS.size) ? "movq" : "movl"
-        # Temporarily default everything to 64 bits registers
-        mov_instruction = "movq"
+        #mov_instruction = ((args.size-i) > RREGISTERS.size) ? "movq" : "movl"
+        mov_instruction = 'movq'
         @output_stream.puts "\t#{mov_instruction}\t#{param}, #{get_register(args.size-i)}"
       end
     end
@@ -279,7 +281,7 @@ PROLOG
     compile_exp(Scope.new(self, @main), exp)
 
     # @seq??  That looks wrong.
-    if @seq > REGISTERS.size
+    if @seq > RREGISTERS.size
       @output_stream.puts "\tleave"
     else
       @output_stream.puts "\tpopq\t%rbp"
