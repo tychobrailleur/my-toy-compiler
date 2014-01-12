@@ -39,7 +39,6 @@ signed int not(signed int a)
 // evaluation happens before this function is called.
 signed int and(signed int a, signed int b)
 {
- printf("and: %d && %d %d", a, b, (a&&b));
   return a && b;
 }
 
