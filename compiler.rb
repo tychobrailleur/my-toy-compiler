@@ -59,7 +59,7 @@ class Compiler
   def get_arg(scope, a)
     # If argument is an array, we recursively compile it.
     return compile_exp(scope, a) if a.is_a?(Array)
-    return [:int, a] if (a.is_a?(Fixnum))
+    return [:int, a] if (a.is_a?(Integer))
     return scope.get_arg(a) if (a.is_a?(Symbol))
 
     # handling strings.
@@ -119,7 +119,7 @@ PROLOG
 
       if function.args.size > 0
         @output_stream.puts("leave")
-      else 
+      else
         @output_stream.puts("\tpopq\t%rbp")
       end
 
@@ -194,12 +194,12 @@ EPILOGUE
   end
 
   def compile_assign(scope, left, right)
-    source = compile_eval_arg(scope, right) 
-    atype, aparam = get_arg(scope,left) 
+    source = compile_eval_arg(scope, right)
+    atype, aparam = get_arg(scope,left)
     raise "Expected a variable on left hand side of assignment" if atype != :arg
     @output_stream.puts "\tmovq\t#{source}, -#{PTR_SIZE*(aparam+1)}(%rbp)"
-    return [:subexpr] 
-  end 
+    return [:subexpr]
+  end
 
   def compile_do(scope, *exp)
     exp.each { |e| compile_exp(scope, e) }
@@ -241,11 +241,11 @@ EPILOGUE
     # function definition.
     return compile_defun(scope, *exp[1..-1]) if (exp[0] == :defun)
     # if ... else
-    return compile_ifelse(scope, *exp[1..-1]) if (exp[0] == :if) 
+    return compile_ifelse(scope, *exp[1..-1]) if (exp[0] == :if)
     return compile_while(scope,*exp[1..-1]) if (exp[0] == :while)
     return compile_lambda(scope, *exp[1..-1]) if (exp[0] == :lambda)
     return compile_call(scope, exp[1], exp[2]) if (exp[0] == :call)
-    return compile_assign(scope, *exp[1..-1]) if (exp[0] == :assign) 
+    return compile_assign(scope, *exp[1..-1]) if (exp[0] == :assign)
     return compile_call(scope, exp[0], exp[1..-1])
   end
 

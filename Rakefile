@@ -7,10 +7,10 @@ task :default => [:compile]
 desc "Compiles the file"
 task :compile do
   sh "ruby -I. parser.rb > parser.s"
-  sh "gcc -o parser parser.s runtime.c"  
+  sh "gcc -fPIC -o parser parser.s runtime.c"
 end
 
 task :parser do
   sh "ruby -I. parser.rb > parser.s"
-  sh "gcc -o parser parser.s runtime.c"  
+  sh "gcc -o parser parser.s runtime.c"
 end

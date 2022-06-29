@@ -12,6 +12,16 @@ The command used to compile is:
 
     ruby compiler.rb > hello.s ; gcc -o hello hello.s
 
+# Docker
+
+  docker can be used to compile everything:
+
+```
+cd docker
+docker build -t my-compiler .
+docker run -it -v $(pwd)/..:/develop my-compiler:latest /bin/bash
+```
+
 Some useful links:
 
 * http://www.hep.wisc.edu/~pinghc/x86AssmTutorial.htm x86 GNU AS tutorial, but very useful to get started with x64.
